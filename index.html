@@ -20,6 +20,11 @@ body.title #tl,body.title #obj,body.title #cross,body.title #hint,body.title #to
 #cross{position:absolute;left:50%;top:50%;width:4px;height:4px;margin:-2px;border-radius:50%;background:rgba(255,255,255,.75);box-shadow:0 0 4px rgba(0,0,0,.6)}
 #hint{position:absolute;left:0;right:0;bottom:15%;text-align:center;font-size:15px;color:#fff;opacity:0;transition:opacity .25s}
 #hint kbd{display:inline-block;border:1px solid rgba(255,255,255,.6);border-radius:3px;padding:0 7px;margin-right:6px;color:var(--gold)}
+#map{inset:auto;position:absolute;right:18px;bottom:16px;width:200px;height:200px;border:1px solid rgba(255,255,255,.35);border-radius:8px;background:rgba(6,10,28,.5);box-shadow:0 2px 14px rgba(0,0,0,.45);transition:opacity .6s}
+#map.big{inset:50% auto auto 50%;transform:translate(-50%,-50%);width:min(80vmin,640px);height:min(80vmin,640px);background:rgba(6,10,28,.72)}
+body.title #map,body.paused #map{opacity:0!important}
+#mapk{position:absolute;right:18px;bottom:222px;font-size:11px;opacity:.7;letter-spacing:.1em}
+body.title #mapk,body.paused #mapk{opacity:0}
 #obj{position:absolute;left:18px;bottom:16px;font-size:12px;opacity:.85;line-height:1.7}
 #stones{display:flex;gap:9px;margin-top:4px}
 #stones i{width:11px;height:11px;transform:rotate(45deg);border:1px solid rgba(255,255,255,.5);background:rgba(255,255,255,.08);transition:all .6s}
@@ -53,6 +58,7 @@ background:radial-gradient(ellipse at 50% 100%,rgba(255,150,90,.28),rgba(30,25,8
   <div id="cross"></div>
   <div id="hint"></div>
   <div id="toast"></div>
+  <canvas id="map" width="512" height="512"></canvas><div id="mapk">[TAB] BIG MAP</div>
   <div id="obj"><span id="objt">Find the three light-stones. Wake the spire.</span><div id="stones"><i></i><i></i><i></i></div></div>
 </div>
 <div id="veil"></div>
@@ -174,7 +180,7 @@ const inIsland=(x,z)=>H(x,z)>-20;
 
 const C=s=>new Color(s);
 const cGrassA=C('#1c8266'), cGrassB=C('#63bd7d'), cGold=C('#b4c467'), cForest=C('#14523f'), cSand=C('#ecdcb0'), cWet=C('#b09a70'), cRock1=C('#6c6888'), cRock2=C('#a08e8c'), cStone=C('#a49e90'), cBed=C('#8a9a78');
-const col=new Color(), col2=new Color(); let terrainGeo;
+const col=new Color(), col2=new Color(); let terrainGeo, TCOL;
 (function buildTerrain(){
   for(let j=0;j<NV;j++) for(let i=0;i<NV;i++) HT[j*NV+i]=rawH(i*CELL-HALF,j*CELL-HALF);
   const pos=new Float32Array(NV*NV*3), colr=new Float32Array(NV*NV*3);
@@ -201,7 +207,7 @@ const col=new Color(), col2=new Color(); let terrainGeo;
   for(let j=0;j<N;j++) for(let i=0;i<N;i++){ const a=j*NV+i,b=a+1,c=a+NV,d=c+1;
     if(HT[a]<-23&&HT[b]<-23&&HT[c]<-23&&HT[d]<-23) continue;
     if(((i+j)&1)===0) idx.push(a,c,b,b,c,d); else idx.push(a,c,d,a,d,b); }
-  terrainGeo=new BufferGeometry(); terrainGeo.setAttribute('position',new BufferAttribute(pos,3)); terrainGeo.setAttribute('color',new BufferAttribute(colr,3));
+  TCOL=colr; terrainGeo=new BufferGeometry(); terrainGeo.setAttribute('position',new BufferAttribute(pos,3)); terrainGeo.setAttribute('color',new BufferAttribute(colr,3));
   terrainGeo.setIndex(new BufferAttribute(new Uint32Array(idx),1)); terrainGeo.computeVertexNormals(); terrainGeo.computeBoundingSphere();
 })();
 const heightTex=new THREE.DataTexture(TEXD,NV,NV,THREE.RGBAFormat,THREE.FloatType);
@@ -927,7 +933,39 @@ let toastT=0; function toast(msg,ms){ const el=$('toast'); el.textContent=msg; e
 let hudAcc=0, fpsAcc=0, fpsN=0, hintKey='';
 const HINTS={pick:'<kbd>E</kbd>pick up',held:'<kbd>E</kbd>drop &nbsp; <kbd>LMB</kbd>throw',heldStone:'<kbd>E</kbd>drop &nbsp; <kbd>LMB</kbd>throw &nbsp;\u00b7&nbsp; set it down on its matching pedestal',stones:HUES.map(h=>'<kbd>E</kbd>pick up the '+h.n+' light-stone')};
 function setHint(h){ if(h===hintKey) return; hintKey=h; const el=$('hint'); el.innerHTML=h; el.style.opacity=h?1:0; }
+/* ---- map: terrain baked once to an offscreen canvas, markers redrawn ~12x/s ---- */
+const mapCv=$('map'), mapCx=mapCv.getContext('2d'), MAPR=115, MAPN=512; let mapBase=null, mapAcc=0, mapBig=false;
+const m2x=x=>(x+MAPR)/(2*MAPR)*MAPN, hex=i=>'#'+HUES[i].c.getHexString();
+function buildMapBase(){ const cv=document.createElement('canvas'); cv.width=cv.height=MAPN; const c=cv.getContext('2d'), im=c.createImageData(MAPN,MAPN), d=im.data, s2=x=>Math.round(clamp(Math.pow(x,1/2.2),0,1)*255);
+  for(let py=0;py<MAPN;py++) for(let px=0;px<MAPN;px++){ const x=px/MAPN*2*MAPR-MAPR, z=py/MAPN*2*MAPR-MAPR, h=H(x,z), k=(py*MAPN+px)*4; if(h<-20) continue;
+    const i=Math.min(N,Math.max(0,Math.round((x+HALF)/CELL))), j=Math.min(N,Math.max(0,Math.round((z+HALF)/CELL))), v=(j*NV+i)*3, sh=clamp(1+(H(x-1.5,z-1.5)-H(x+1.5,z+1.5))*.09,.6,1.3);
+    let r=TCOL[v],g=TCOL[v+1],b=TCOL[v+2]; const wd=waterDepth(x,z); if(wd>0){ const t=clamp(wd/1.6,0,1); r=lerp(.12,.03,t); g=lerp(.45,.22,t); b=lerp(.5,.36,t); }
+    d[k]=s2(r*sh*1.1); d[k+1]=s2(g*sh*1.1); d[k+2]=s2(b*sh*1.1); d[k+3]=255; }
+  c.putImageData(im,0,0); mapBase=cv; }
+try{ buildMapBase(); }catch(e){ showError('Map: '+e.message,''); }
+function drawMap(){
+  if(!mapBase) return; const c=mapCx, K=mapBig?1:1.9, t=SU.uTime.value; c.clearRect(0,0,MAPN,MAPN); c.drawImage(mapBase,0,0);
+  // spire / ruin
+  const sx=m2x(RUIN.x), sy=m2x(RUIN.z); c.strokeStyle='rgba(255,220,140,.5)'; c.lineWidth=1.5*K; c.beginPath(); c.arc(sx,sy,RUIN.r/(2*MAPR)*MAPN,0,TAU); c.stroke();
+  c.fillStyle='#ffd27a'; c.beginPath(); c.moveTo(sx,sy-6*K); c.lineTo(sx+3.5*K,sy+3*K); c.lineTo(sx-3.5*K,sy+3*K); c.closePath(); c.fill();
+  // guide lines from each unplaced stone to its matching pedestal (big map only)
+  if(mapBig){ c.setLineDash([6,6]); c.lineWidth=1.5; for(const o of stones){ if(o.placed) continue; const pd=pedestals[o.hue]; c.strokeStyle=hex(o.hue)+'99'; c.beginPath(); c.moveTo(m2x(o.pos.x),m2x(o.pos.z)); c.lineTo(m2x(pd.x),m2x(pd.z)); c.stroke(); } c.setLineDash([]); }
+  // pedestals: ring, filled when awakened
+  for(const pd of pedestals){ const x=m2x(pd.x), y=m2x(pd.z); c.lineWidth=2*K; c.strokeStyle=hex(pd.hue); c.fillStyle=pd.filled?hex(pd.hue):'rgba(0,0,0,.35)'; c.beginPath(); c.arc(x,y,3.6*K,0,TAU); c.fill(); c.stroke(); }
+  // light-stones: pulsing diamonds
+  for(const o of stones){ if(o.placed) continue; const x=m2x(o.pos.x), y=m2x(o.pos.z), r=4.6*K, pr=r*(1.6+.5*Math.sin(t*3+o.hue)); c.strokeStyle=hex(o.hue)+'88'; c.lineWidth=1.5; c.beginPath(); c.arc(x,y,pr,0,TAU); c.stroke();
+    c.fillStyle=hex(o.hue); c.strokeStyle='#fff'; c.lineWidth=1.5*K; c.beginPath(); c.moveTo(x,y-r); c.lineTo(x+r,y); c.lineTo(x,y+r); c.lineTo(x-r,y); c.closePath(); c.fill(); c.stroke(); }
+  // player arrow (points where you look)
+  const px=m2x(P.pos.x), py=m2x(P.pos.z), a=Math.atan2(-Math.sin(P.yaw),-Math.cos(P.yaw)); c.save(); c.translate(px,py); c.rotate(a+Math.PI/2);
+  if(mapBig){ c.fillStyle='rgba(255,255,255,.14)'; c.beginPath(); c.moveTo(0,0); c.arc(0,0,46,-Math.PI/2-.9,-Math.PI/2+.9); c.closePath(); c.fill(); }
+  c.fillStyle='#fff'; c.strokeStyle='#0a0f26'; c.lineWidth=1.6*K; c.beginPath(); c.moveTo(0,-7*K); c.lineTo(5*K,6*K); c.lineTo(0,3*K); c.lineTo(-5*K,6*K); c.closePath(); c.fill(); c.stroke(); c.restore();
+  // labels + north marker
+  c.fillStyle='rgba(255,255,255,.85)'; c.font=(mapBig?'600 15px':'700 26px')+' system-ui,sans-serif'; c.textAlign='center'; c.fillText('N',MAPN/2,mapBig?20:30);
+  if(mapBig){ c.font='600 13px system-ui,sans-serif'; c.fillStyle='rgba(255,255,255,.6)'; c.fillText('RUIN',sx,sy-RUIN.r*2.4); c.fillText('LAKE',m2x(LAKE.x),m2x(LAKE.z)+4); c.fillText('FOREST',m2x(FOREST.x),m2x(FOREST.z)); c.fillText('BEACH',m2x(SPAWN.x),m2x(SPAWN.z)+34); }
+}
+function toggleMap(){ mapBig=!mapBig; mapCv.classList.toggle('big',mapBig); $('mapk').textContent=mapBig?'[TAB] SMALL MAP':'[TAB] BIG MAP'; mapAcc=9; }
 function updateHUD(dt){
+  mapAcc+=dt; if(mapAcc>=.08){ mapAcc=0; drawMap(); }
   hudAcc+=dt; fpsAcc+=dt; fpsN++;
   // contextual hint (cheap, every frame)
   let h=''; if(P.held) h=P.held.kind==='stone'?HINTS.heldStone:HINTS.held; else { const o=pickupTarget(); if(o) h=o.kind==='stone'?HINTS.stones[o.hue]:HINTS.pick; }
@@ -968,6 +1006,7 @@ document.addEventListener('mousedown',e=>{ if(STATE.running&&e.button===0&&docum
 window.addEventListener('keydown',e=>{
   if(e.code==='KeyM'&&!e.repeat){ setMuted(!STATE.muted); return; }
   if(!STATE.running) return; if(e.code==='Space'||e.code==='ArrowUp'||e.code==='ArrowDown') e.preventDefault(); keys[e.code]=true;
+  if(e.code==='Tab'){ e.preventDefault(); if(!e.repeat) toggleMap(); return; }
   if(e.repeat) return; if(e.code==='KeyE') interact(); else if(e.code==='KeyT'){ nextWeather(true); toast(['CLEAR','RAIN','FOG'][W.target]+' SKIES',1600); } });
 window.addEventListener('keyup',e=>{ keys[e.code]=false; });
 $('mute').addEventListener('click',e=>{ e.stopPropagation(); setMuted(!STATE.muted); });
@@ -994,7 +1033,7 @@ applyTier(); $('go').textContent='CLICK TO BEGIN';
 let warmed=false;
 /* ============================ 16. CLEANUP / UTILITIES ============================ */
 window.addEventListener('pagehide',()=>{ try{ if(AU.ctx) AU.ctx.close(); refRT.dispose(); renderer.dispose(); }catch(e){} });
-window.__W={SFX,AU,spireU,ptA,ptB,THREE,scene,camera,renderer,P,ENV,W,Q,STATE,PZ,OBJ,stones,pedestals,hares,trees,keys,H,surfH,waterDepth,SPAWN,RUIN,LAKE,HR,setRunning,setMuted,nextWeather,interact,throwHeld,respawnObj,setT(t){ ENV.t=t; },setWeather(i){ W.target=i; W.rain=i===1?1:0; W.fog=i===2?1:0; },tp(x,z,yaw,pitch){ P.pos.set(x,surfH(x,z)+.05,z); P.vel.set(0,0,0); P.onGround=true; if(yaw!==undefined) P.yaw=yaw; if(pitch!==undefined) P.pitch=pitch; },sim(dt){ SU.uTime.value+=dt; safe(updatePlayer,dt); safe(updateWeather,dt); safe(updateDayNight,dt); safe(updateCreatures,dt); safe(updateObjects,dt); safe(updatePuzzle,dt); safe(updateWater,dt); safe(updateGlows,dt); safe(updateAudio,dt); safe(updateHUD,dt); },render:renderFrame};
+window.__W={toggleMap,drawMap,SFX,AU,spireU,ptA,ptB,THREE,scene,camera,renderer,P,ENV,W,Q,STATE,PZ,OBJ,stones,pedestals,hares,trees,keys,H,surfH,waterDepth,SPAWN,RUIN,LAKE,HR,setRunning,setMuted,nextWeather,interact,throwHeld,respawnObj,setT(t){ ENV.t=t; },setWeather(i){ W.target=i; W.rain=i===1?1:0; W.fog=i===2?1:0; },tp(x,z,yaw,pitch){ P.pos.set(x,surfH(x,z)+.05,z); P.vel.set(0,0,0); P.onGround=true; if(yaw!==undefined) P.yaw=yaw; if(pitch!==undefined) P.pitch=pitch; },sim(dt){ SU.uTime.value+=dt; safe(updatePlayer,dt); safe(updateWeather,dt); safe(updateDayNight,dt); safe(updateCreatures,dt); safe(updateObjects,dt); safe(updatePuzzle,dt); safe(updateWater,dt); safe(updateGlows,dt); safe(updateAudio,dt); safe(updateHUD,dt); },render:renderFrame};
 requestAnimationFrame(t=>{ lastT=t; frame(t); });
 } // end boot
 </script>
