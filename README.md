@@ -27,6 +27,7 @@ Three glowing light-stones are scattered across the island (lake shore, forest, 
 | Space | Jump |
 | E | Pick up / drop an object |
 | Tab | Toggle the big map |
+| H | Hide / show the controls panel (your choice is remembered) |
 | Left click | Throw the carried object |
 | T | Cycle weather (clear, rain, fog) |
 | M | Mute |
@@ -41,6 +42,7 @@ Three glowing light-stones are scattered across the island (lake shore, forest, 
 - **Water:** shader-faked refraction, Fresnel, caustics and shore foam, plus a planar reflection (half resolution, at most 30 Hz, skipped when off-screen). Ripples follow you and the rain.
 - **Creatures:** flocking birds (cohesion, separation, alignment) that leave at dusk, hares that wander, notice you and flee, and glowing fireflies at night.
 - **Map:** a corner minimap shows you (with your facing), the spire, the three light-stones and their matching pedestals (rings that fill when awakened). Tab enlarges it to a full-island map with dashed guide lines from each stone to its pedestal.
+- **Controls panel:** a small key list bottom-left. It is bright for the first 20 s of play, then stays at 25% opacity until you press H to fold it to a tiny chip. The E and LMB rows light up when you can pick something up or are carrying it. Your choice persists in `localStorage`.
 - **Physics:** pick up, drop and throw objects with gravity, bounce, damping and rolling. Anything that falls off the island or sinks into deep water respawns at its origin with a light pulse.
 - **Audio:** Web Audio only. Wind, birds, crickets, rain, thunder, footsteps that differ on grass, sand, stone and water, and puzzle sounds.
 - **Adaptive quality:** watches frame time and steps quality down or up (reflection resolution and rate, then shadow map size, then render scale, then an analytic reflection).

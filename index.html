@@ -25,6 +25,18 @@ body.title #tl,body.title #obj,body.title #cross,body.title #hint,body.title #to
 body.title #map,body.paused #map{opacity:0!important}
 #mapk{position:absolute;right:18px;bottom:222px;font-size:11px;opacity:.7;letter-spacing:.1em}
 body.title #mapk,body.paused #mapk{opacity:0}
+#kp{position:absolute;left:18px;bottom:88px;font-size:11px;letter-spacing:.08em;line-height:1.85;transition:opacity .6s}
+#kp .kt{opacity:.3;font-size:10px;letter-spacing:.18em;margin-bottom:2px;text-transform:uppercase}
+#kp .kt em{font-style:normal;color:var(--gold);margin-left:8px}
+#kp .kr{opacity:.28;transition:opacity .35s,color .35s;white-space:nowrap}
+#kp .kr kbd{display:inline-block;min-width:44px;text-align:center;border:1px solid rgba(255,255,255,.55);border-radius:3px;padding:0 5px;margin-right:8px;font:inherit;color:var(--gold)}
+#kp.fresh .kr,#kp.fresh .kt{opacity:.85}
+#kp .kr.on{opacity:1;color:#fff;text-shadow:0 0 8px rgba(255,210,122,.8)}
+#kp.off,#kchip{display:none}
+#kp.off~#kchip{display:block}
+#kchip{position:absolute;left:18px;bottom:88px;font-size:10px;letter-spacing:.14em;opacity:.28;text-transform:uppercase}
+#kchip b{color:var(--gold);font-weight:600}
+body.title #kp,body.title #kchip,body.paused #kp,body.paused #kchip,body.bigmap #kp,body.bigmap #kchip{visibility:hidden}
 #obj{position:absolute;left:18px;bottom:16px;font-size:12px;opacity:.85;line-height:1.7}
 #stones{display:flex;gap:9px;margin-top:4px}
 #stones i{width:11px;height:11px;transform:rotate(45deg);border:1px solid rgba(255,255,255,.5);background:rgba(255,255,255,.08);transition:all .6s}
@@ -59,6 +71,11 @@ background:radial-gradient(ellipse at 50% 100%,rgba(255,150,90,.28),rgba(30,25,8
   <div id="hint"></div>
   <div id="toast"></div>
   <canvas id="map" width="512" height="512"></canvas><div id="mapk">[TAB] BIG MAP</div>
+  <div id="kp"><div class="kt">Controls<em>[H] hide</em></div>
+    <div class="kr"><kbd>W A S D</kbd>move</div><div class="kr"><kbd>Mouse</kbd>look</div><div class="kr"><kbd>Shift</kbd>sprint</div><div class="kr"><kbd>Space</kbd>jump</div>
+    <div class="kr" id="kE"><kbd>E</kbd>pick up / drop</div><div class="kr" id="kL"><kbd>LMB</kbd>throw</div>
+    <div class="kr"><kbd>T</kbd>weather</div><div class="kr"><kbd>Tab</kbd>map</div><div class="kr"><kbd>M</kbd>sound</div><div class="kr"><kbd>Esc</kbd>pause</div></div>
+  <div id="kchip"><b>[H]</b> controls</div>
   <div id="obj"><span id="objt">Find the three light-stones. Wake the spire.</span><div id="stones"><i></i><i></i><i></i></div></div>
 </div>
 <div id="veil"></div>
@@ -963,12 +980,18 @@ function drawMap(){
   c.fillStyle='rgba(255,255,255,.85)'; c.font=(mapBig?'600 15px':'700 26px')+' system-ui,sans-serif'; c.textAlign='center'; c.fillText('N',MAPN/2,mapBig?20:30);
   if(mapBig){ c.font='600 13px system-ui,sans-serif'; c.fillStyle='rgba(255,255,255,.6)'; c.fillText('RUIN',sx,sy-RUIN.r*2.4); c.fillText('LAKE',m2x(LAKE.x),m2x(LAKE.z)+4); c.fillText('FOREST',m2x(FOREST.x),m2x(FOREST.z)); c.fillText('BEACH',m2x(SPAWN.x),m2x(SPAWN.z)+34); }
 }
-function toggleMap(){ mapBig=!mapBig; mapCv.classList.toggle('big',mapBig); $('mapk').textContent=mapBig?'[TAB] SMALL MAP':'[TAB] BIG MAP'; mapAcc=9; }
+/* ---- controls panel: open by default, dims to 25% after 20 s of play, [H] folds it to a chip; choice persisted ---- */
+const kp=$('kp'), kE=$('kE'), kL=$('kL'); let keysT=0, kOnE=false, kOnL=false;
+function setKeysHidden(h,save){ kp.classList.toggle('off',h); if(save){ try{ localStorage.setItem('aether.keys',h?'hidden':'open'); }catch(e){} } }
+try{ setKeysHidden(localStorage.getItem('aether.keys')==='hidden',false); }catch(e){}
+function toggleMap(){ document.body.classList.toggle('bigmap',!mapBig); mapBig=!mapBig; mapCv.classList.toggle('big',mapBig); $('mapk').textContent=mapBig?'[TAB] SMALL MAP':'[TAB] BIG MAP'; mapAcc=9; }
 function updateHUD(dt){
   mapAcc+=dt; if(mapAcc>=.08){ mapAcc=0; drawMap(); }
   hudAcc+=dt; fpsAcc+=dt; fpsN++;
   // contextual hint (cheap, every frame)
-  let h=''; if(P.held) h=P.held.kind==='stone'?HINTS.heldStone:HINTS.held; else { const o=pickupTarget(); if(o) h=o.kind==='stone'?HINTS.stones[o.hue]:HINTS.pick; }
+  let h='', canE=false; if(P.held){ canE=true; h=P.held.kind==='stone'?HINTS.heldStone:HINTS.held; } else { const o=pickupTarget(); if(o){ canE=true; h=o.kind==='stone'?HINTS.stones[o.hue]:HINTS.pick; } }
+  keysT+=dt; if(keysT<20!==kp.classList.contains('fresh')) kp.classList.toggle('fresh',keysT<20);
+  const carrying=!!P.held; if(canE!==kOnE){ kOnE=canE; kE.classList.toggle('on',canE); } if(carrying!==kOnL){ kOnL=carrying; kL.classList.toggle('on',carrying); }
   setHint(h);
   if(fpsAcc>=.5){ $('fps').textContent=Math.round(fpsN/fpsAcc)+' FPS'; if(DEBUG) updateDebug(); fpsAcc=0; fpsN=0; }
   if(hudAcc>=.25){ hudAcc=0; const t=ENV.t*24, hh=Math.floor(t), mm=Math.floor((t-hh)*60); $('clock').textContent=String(hh).padStart(2,'0')+':'+String(mm).padStart(2,'0');
@@ -1007,6 +1030,7 @@ window.addEventListener('keydown',e=>{
   if(e.code==='KeyM'&&!e.repeat){ setMuted(!STATE.muted); return; }
   if(!STATE.running) return; if(e.code==='Space'||e.code==='ArrowUp'||e.code==='ArrowDown') e.preventDefault(); keys[e.code]=true;
   if(e.code==='Tab'){ e.preventDefault(); if(!e.repeat) toggleMap(); return; }
+  if(e.code==='KeyH'){ if(!e.repeat) setKeysHidden(!kp.classList.contains('off'),true); return; }
   if(e.repeat) return; if(e.code==='KeyE') interact(); else if(e.code==='KeyT'){ nextWeather(true); toast(['CLEAR','RAIN','FOG'][W.target]+' SKIES',1600); } });
 window.addEventListener('keyup',e=>{ keys[e.code]=false; });
 $('mute').addEventListener('click',e=>{ e.stopPropagation(); setMuted(!STATE.muted); });
