@@ -6,6 +6,8 @@ A small procedural island at the edge of the sky, explored in first person. The 
 
 Best in desktop Chrome with hardware acceleration on. It needs an internet connection on first load to fetch three.js. You can also just double-click `index.html`.
 
+The full prompt this was built from is in [`PROMPT.md`](PROMPT.md).
+
 ## Goal
 
 Three glowing light-stones are scattered across the island (lake shore, forest, a far hill). Carry each one to the pedestal of the same colour in the ruin. When all three are placed the ancient spire awakens: its runes ignite in sequence and a beam of light fires into the sky.
