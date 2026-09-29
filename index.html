@@ -973,7 +973,7 @@ function drawMap(){
   for(const o of stones){ if(o.placed) continue; const x=m2x(o.pos.x), y=m2x(o.pos.z), r=4.6*K, pr=r*(1.6+.5*Math.sin(t*3+o.hue)); c.strokeStyle=hex(o.hue)+'88'; c.lineWidth=1.5; c.beginPath(); c.arc(x,y,pr,0,TAU); c.stroke();
     c.fillStyle=hex(o.hue); c.strokeStyle='#fff'; c.lineWidth=1.5*K; c.beginPath(); c.moveTo(x,y-r); c.lineTo(x+r,y); c.lineTo(x,y+r); c.lineTo(x-r,y); c.closePath(); c.fill(); c.stroke(); }
   // player arrow (points where you look)
-  const px=m2x(P.pos.x), py=m2x(P.pos.z), a=Math.atan2(-Math.sin(P.yaw),-Math.cos(P.yaw)); c.save(); c.translate(px,py); c.rotate(a+Math.PI/2);
+  const px=m2x(P.pos.x), py=m2x(P.pos.z); c.save(); c.translate(px,py); c.rotate(-P.yaw);
   if(mapBig){ c.fillStyle='rgba(255,255,255,.14)'; c.beginPath(); c.moveTo(0,0); c.arc(0,0,46,-Math.PI/2-.9,-Math.PI/2+.9); c.closePath(); c.fill(); }
   c.fillStyle='#fff'; c.strokeStyle='#0a0f26'; c.lineWidth=1.6*K; c.beginPath(); c.moveTo(0,-7*K); c.lineTo(5*K,6*K); c.lineTo(0,3*K); c.lineTo(-5*K,6*K); c.closePath(); c.fill(); c.stroke(); c.restore();
   // labels + north marker
