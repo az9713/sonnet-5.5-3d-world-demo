@@ -43,9 +43,14 @@ Roughly 48 draw calls and about 414k triangles per frame (including the shadow a
 
 Add `?debug` to the URL to show the GPU name, draw calls, triangle count, frame time, render scale and quality tier.
 
-## Hosting
+## Hosting (GitHub Pages)
 
-The site is published by the workflow in `.github/workflows/pages.yml`. If the first run cannot enable Pages itself, turn it on once under **Settings → Pages → Source: GitHub Actions**, then re-run the workflow.
+`index.html` sits at the repository root, so Pages can serve it directly, with no build or workflow.
+
+1. Repo **Settings → Pages**.
+2. **Source:** *Deploy from a branch*.
+3. **Branch:** the branch that holds `index.html` (currently `claude/sharp-babbage-3oeiq1`, or `main` once merged), folder **/ (root)**, then **Save**.
+4. After a minute the game is live at the URL above. Every push to that branch redeploys it.
 
 ## Known limits
 
