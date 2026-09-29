@@ -8,6 +8,10 @@ Best in desktop Chrome with hardware acceleration on. It needs an internet conne
 
 The full prompt this was built from is in [`PROMPT.md`](PROMPT.md).
 
+## Reference
+
+The prompt comes from the YouTube video [I Tested Sonnet 5.5 vs Opus 5.5 (WILD RESULTS)](https://www.youtube.com/watch?v=pn08Kdp998Y&t=184s) (jumps to 3:04). The version of the prompt used here in `PROMPT.md` is the one refined by both GPT-6 and Sonnet 5.5.
+
 ## Goal
 
 Three glowing light-stones are scattered across the island (lake shore, forest, a far hill). Carry each one to the pedestal of the same colour in the ruin. When all three are placed the ancient spire awakens: its runes ignite in sequence and a beam of light fires into the sky.
